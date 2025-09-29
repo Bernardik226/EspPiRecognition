@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Galeria ESP32-CAM - PiEsp Recognition{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/gallery.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="gallery-container">
+  <h1><i class="fas fa-camera"></i> Galeria ESP32-CAM</h1>
+
+  <div class="controls">
+    <div id="status">Carregando...</div>
+  </div>
+
+  <main id="gallery" class="gallery" aria-live="polite"></main>
+  <div id="loader" class="loader">Carregando mais fotos...</div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true">
+    <button id="modalClose" class="close" aria-label="Fechar">✕</button>
+    <img id="modalImg" src="" alt="Foto ampliada">
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/gallery.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Streaming - PiEsp Recognition{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/streaming.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="streaming-container">
+    <div class="container">
+        <h1>
+            <i class="fas fa-video"></i> Streaming ao Vivo
+        </h1>
+        
+        <!-- Player de vídeo -->
+        <div class="video-player">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-broadcast-tower"></i> Transmissão ao Vivo</h5>
+                </div>
+                <div class="card-body">
+                    <div class="video-container">
+                        <video id="streamingVideo" controls autoplay muted>
+                            <source src="/stream/" type="video/mp4">
+                            Seu navegador não suporta o elemento de vídeo.
+                        </video>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Controles -->
+        <div class="controls-panel">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-cogs"></i> Controles</h5>
+                </div>
+                <div class="card-body">
+                    <div class="control-buttons">
+                        <button class="btn-stream btn-start" id="startStream">
+                            <i class="fas fa-play"></i> Iniciar Stream
+                        </button>
+                        <button class="btn-stream btn-stop" id="stopStream">
+                            <i class="fas fa-stop"></i> Parar Stream
+                        </button>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="autoStart">
+                            <label class="form-check-label" for="autoStart">
+                                Iniciar automaticamente
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/streaming.js' %}"></script>
+{% endblock %}

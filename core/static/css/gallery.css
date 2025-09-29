@@ -1,0 +1,161 @@
+/* Estilos específicos da Galeria ESP32-CAM */
+
+:root {
+    --bg: #f4f6f8;
+    --card: #fff;
+}
+
+.gallery-container {
+    font-family: Inter, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    padding: 18px;
+    color: #222;
+}
+
+.gallery-container h1 {
+    margin: 0 0 18px;
+    text-align: center;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+/* Gallery grid */
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    align-items: start;
+}
+
+.thumb-card {
+    background: var(--card);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.thumb-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.thumb {
+    width: 180px;
+    height: auto;
+    display: block;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.thumb:hover {
+    opacity: 0.9;
+}
+
+.meta {
+    font-size: 12px;
+    color: #666;
+    margin-top: 6px;
+    text-align: center;
+}
+
+/* Loader */
+.loader {
+    display: flex;
+    justify-content: center;
+    padding: 12px;
+    color: #444;
+}
+
+/* Modal fullscreen */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.88);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.modal.open {
+    display: flex;
+    opacity: 1;
+}
+
+.modal img {
+    max-width: 95%;
+    max-height: 92%;
+    border-radius: 8px;
+    transform: scale(0.8);
+    transition: transform 0.3s ease;
+}
+
+.modal.open img {
+    transform: scale(1);
+}
+
+.modal .close {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    font-size: 28px;
+    color: #fff;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background-color 0.2s ease;
+}
+
+.modal .close:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Status indicator */
+#status {
+    padding: 8px 16px;
+    background: #e9ecef;
+    border-radius: 20px;
+    font-size: 14px;
+    color: #495057;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+    .gallery-container {
+        padding: 12px;
+    }
+    
+    .gallery {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 8px;
+    }
+    
+    .thumb {
+        width: 150px;
+    }
+}
+
+@media (max-width: 420px) {
+    .thumb {
+        width: 140px;
+    }
+    
+    .gallery {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+}
