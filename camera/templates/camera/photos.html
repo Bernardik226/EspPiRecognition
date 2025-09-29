@@ -1,0 +1,214 @@
+<!--
+INSTRUÇÕES RÁPIDAS (cole as views/urls abaixo em camera/views.py e camera/urls.py):
+
+# views.py (adicionar):
+from django.http import JsonResponse
+from .models import Photo
+from django.shortcuts import render
+
+def photos_page(request):
+    return render(request, 'camera/photos.html')
+
+# API paginada (offset/limit) - retorna fotos mais recentes primeiro
+def photos_api(request):
+    try:
+        offset = int(request.GET.get('offset', 0))
+        limit = int(request.GET.get('limit', 20))
+    except ValueError:
+        offset, limit = 0, 20
+
+    photos = Photo.objects.order_by('-created_at')[offset:offset+limit]
+    data = [{
+        'id': p.id,
+        'url': p.image.url,
+        'created_at': p.created_at.isoformat()
+    } for p in photos]
+    return JsonResponse(data, safe=False)
+
+# URLS (camera/urls.py):
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('photos/', views.photos_page, name='photos_page'),
+    path('api/photos/', views.photos_api, name='photos_api'),
+]
+
+Certifique-se que em espserver/urls.py você inclua camera.urls e que MEDIA_URL/MEDIA_ROOT estejam servidos em DEBUG.
+-->
+
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Galeria ESP32-CAM — Miniaturas + Modal + Infinite Scroll</title>
+  <style>
+    :root{--bg:#f4f6f8;--card:#fff}
+    body{font-family:Inter, Roboto, Arial, sans-serif;background:var(--bg);margin:0;padding:18px;color:#222}
+    h1{margin:0 0 18px;text-align:center}
+    .controls{display:flex;justify-content:center;gap:12px;margin-bottom:12px}
+
+    /* gallery grid */
+    .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;align-items:start}
+    .thumb-card{background:var(--card);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.06);overflow:hidden;padding:6px;display:flex;flex-direction:column;align-items:center}
+    .thumb{width:180px;height:auto;display:block;border-radius:6px;cursor:pointer}
+    .meta{font-size:12px;color:#666;margin-top:6px}
+
+    /* loader */
+    .loader{display:flex;justify-content:center;padding:12px;color:#444}
+
+    /* modal fullscreen */
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center}
+    .modal.open{display:flex}
+    .modal img{max-width:95%;max-height:92%;border-radius:8px}
+    .modal .close{position:absolute;top:18px;right:20px;font-size:28px;color:#fff;cursor:pointer}
+
+    /* responsive tweaks */
+    @media (max-width:420px){.thumb{width:140px}} 
+  </style>
+</head>
+<body>
+  <h1>Galeria ESP32-CAM</h1>
+
+  <div class="controls">
+    <div id="status">Carregando...</div>
+  </div>
+
+  <main id="gallery" class="gallery" aria-live="polite"></main>
+  <div id="loader" class="loader">Carregando mais fotos...</div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true">
+    <button id="modalClose" class="close" aria-label="Fechar">✕</button>
+    <img id="modalImg" src="" alt="Foto ampliada">
+  </div>
+
+  <script>
+  (function(){
+    // Configurações
+    const API = '/api/photos/';         // endpoint paginado (offset & limit)
+    const PAGE_LIMIT = 20;              // quantas fotos por "page"
+    const POLL_INTERVAL = 3000;        // ms para checar novas fotos
+    const THUMB_SIZE = 180;            // para cache-busting
+
+    // Estado
+    let offset = 0;                    // quantas fotos já carregadas (para infinite scroll)
+    let loading = false;               // evita chamadas concorrentes
+    let allLoaded = false;             // true quando API retornou menos que PAGE_LIMIT
+    const shownIds = new Set();        // evita duplicatas
+
+    const gallery = document.getElementById('gallery');
+    const loader = document.getElementById('loader');
+    const status = document.getElementById('status');
+
+    // Modal
+    const modal = document.getElementById('modal');
+    const modalImg = document.getElementById('modalImg');
+    const modalClose = document.getElementById('modalClose');
+
+    modalClose.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
+
+    function openModal(src){ modalImg.src = src; modal.classList.add('open'); }
+    function closeModal(){ modal.classList.remove('open'); modalImg.src = ''; }
+
+    // Fetch page (offset)
+    async function fetchPage(){
+      if(loading || allLoaded) return;
+      loading = true; loader.style.display = 'block'; status.textContent = 'Carregando...';
+      try{
+        const res = await fetch(`${API}?offset=${offset}&limit=${PAGE_LIMIT}`);
+        if(!res.ok) throw new Error('Erro HTTP ' + res.status);
+        const data = await res.json();
+        if(!Array.isArray(data)) throw new Error('Resposta inesperada');
+
+        if(data.length < PAGE_LIMIT) allLoaded = true;
+        renderPhotos(data, {append:true});
+        offset += data.length;
+        if(offset === 0) status.textContent = 'Nenhuma foto ainda'; else status.textContent = `Mostrando ${offset} fotos`;
+      }catch(err){
+        console.error('fetchPage', err);
+        status.textContent = 'Erro ao carregar fotos';
+      }finally{
+        loading = false; loader.style.display = allLoaded ? 'none' : 'block';
+      }
+    }
+
+    // Fetch latest (poll) - pega as N mais recentes (limit)
+    async function fetchLatest(){
+      try{
+        const res = await fetch(`${API}?offset=0&limit=${PAGE_LIMIT}`);
+        if(!res.ok) return;
+        const data = await res.json();
+        // insere novos (que ainda não existem no shownIds) no topo
+        const newItems = data.filter(p => !shownIds.has(p.id)).reverse(); // reverse para manter ordem ao inserir no topo
+        if(newItems.length){
+          renderPhotos(newItems, {prepend:true});
+          offset += newItems.length; // já que adicionamos ao total
+          status.textContent = `Mostrando ${offset} fotos`;
+        }
+      }catch(e){ console.debug('poll error', e); }
+    }
+
+    // Render photos
+    function renderPhotos(items, opts={append:true}){
+      const fragment = document.createDocumentFragment();
+      items.forEach(p => {
+        if(shownIds.has(p.id)) return; // evita duplicata
+        shownIds.add(p.id);
+
+        const card = document.createElement('div');
+        card.className = 'thumb-card';
+
+        const img = document.createElement('img');
+        img.className = 'thumb';
+        img.alt = `Foto ${p.id}`;
+        // cache-busting com timestamp curto
+        img.src = p.url + '?t=' + (new Date().getTime() % 100000) + '&w=' + THUMB_SIZE;
+        img.loading = 'lazy';
+        img.onclick = () => openModal(p.url + '?t=' + new Date().getTime());
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = new Date(p.created_at).toLocaleString();
+
+        card.appendChild(img);
+        card.appendChild(meta);
+        if(opts.prepend){
+          // inserir no fragment de modo que quando inserir no DOM as novas venham antes
+          fragment.insertBefore(card, fragment.firstChild);
+        } else {
+          fragment.appendChild(card);
+        }
+      });
+
+      if(opts.prepend){
+        // inserir no topo da galeria
+        gallery.insertBefore(fragment, gallery.firstChild);
+      } else {
+        gallery.appendChild(fragment);
+      }
+    }
+
+    // Infinite scroll: quando chegar perto do fim, carrega próxima página
+    function onScroll(){
+      if(loading || allLoaded) return;
+      const nearBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 600);
+      if(nearBottom) fetchPage();
+    }
+
+    // Inicialização
+    (function init(){
+      // carregue primeira página
+      fetchPage();
+      // polling para novas fotos
+      setInterval(fetchLatest, POLL_INTERVAL);
+      // scroll listener
+      window.addEventListener('scroll', onScroll, {passive:true});
+    })();
+
+  })();
+  </script>
+</body>
+</html>
